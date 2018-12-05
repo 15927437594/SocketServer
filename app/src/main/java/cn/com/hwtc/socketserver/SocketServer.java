@@ -1,11 +1,12 @@
 package cn.com.hwtc.socketserver;
 
+import android.text.TextUtils;
+import android.util.Log;
+
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -19,64 +20,105 @@ import java.util.concurrent.Executors;
  */
 public class SocketServer {
 
+    private static final String TAG = "SocketServer " + SocketServer.class.getSimpleName();
     private static final int PORT = 8989;
-    private List<Socket> mList = new ArrayList<Socket>();
-    private ServerSocket server = null;
-    private ExecutorService mExecutorService = null;
-    private String receiveMsg;
-    private String sendMsg;
+    private List<Socket> mList = new ArrayList<>();
+    private OnUpdateReceiveMsgCallback mOnUpdateReceiveMsgCallback = null;
+    private ServerSocket server;
+    private Socket mClient;
+    private ExecutorService mThreadPool;
+    private OutputStream mOutputStream;
+    private static SocketServer sInstance=null;
+
+    public static SocketServer getInstance() {
+        if (null == sInstance) {
+            synchronized (SocketServer.class) {
+                if (null == sInstance) {
+                    sInstance = new SocketServer();
+                }
+            }
+        }
+        return sInstance;
+    }
 
     public SocketServer() {
+        if (null == mThreadPool)
+            mThreadPool = Executors.newCachedThreadPool();
+    }
+
+    public void start() {
         try {
-            server = new ServerSocket(PORT);
-            mExecutorService = Executors.newCachedThreadPool();
-            System.out.println("服务器已启动...");
-            Socket client = null;
+            if (null == server) {
+                server = new ServerSocket(PORT);
+            }
+            ExecutorService mExecutorService = Executors.newCachedThreadPool();
             while (true) {
-                client = server.accept();
-                mList.add(client);
-                mExecutorService.execute(new Service(client));
+                Log.d(TAG, "SocketServer is start");
+                mClient = server.accept();
+                mList.add(mClient);
+                mExecutorService.execute(new Service(mClient));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    public void sendMsgToClient(final String sendMessage) {
+        mThreadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                if (null == mClient) return;
+                if (TextUtils.isEmpty(sendMessage)) return;
+                try {
+                    mOutputStream = mClient.getOutputStream();
+                    mOutputStream.write((sendMessage + "\n").getBytes("utf-8"));
+                    //发送数据到服务端
+                    mOutputStream.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    public void close() {
+        if (null != server) {
+            try {
+                server.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     class Service implements Runnable {
         private Socket socket;
         private BufferedReader in = null;
-        private PrintWriter printWriter = null;
 
         public Service(Socket socket) {
             this.socket = socket;
             try {
-                printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8")), true);
-                in = new BufferedReader(new InputStreamReader(
-                        socket.getInputStream(), "UTF-8"));
-                printWriter.println("成功连接服务器" + "（服务器发送）");
-                System.out.println("成功连接服务器");
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
         }
 
         @Override
         public void run() {
+            Log.d(TAG, "service run");
             try {
                 while (true) {
+                    String receiveMsg;
                     if ((receiveMsg = in.readLine()) != null) {
-                        System.out.println("receiveMsg:" + receiveMsg);
+                        Log.d(TAG, "receiveMsg:" + receiveMsg);
+                        if (null != mOnUpdateReceiveMsgCallback)
+                            mOnUpdateReceiveMsgCallback.onUpdateReceiveMsg(receiveMsg);
                         if (receiveMsg.equals("0")) {
-                            System.out.println("客户端请求断开连接");
-                            printWriter.println("服务端断开连接" + "（服务器发送）");
                             mList.remove(socket);
                             in.close();
                             socket.close();
                             break;
-                        } else {
-                            sendMsg = "我已接收：" + receiveMsg + "（服务器发送）";
-                            printWriter.println(sendMsg);
                         }
                     }
                 }
@@ -85,4 +127,13 @@ public class SocketServer {
             }
         }
     }
+
+    public interface OnUpdateReceiveMsgCallback {
+        void onUpdateReceiveMsg(String receiveMsg);
+    }
+
+    public void setOnUpdateReceiveMsgCallback(OnUpdateReceiveMsgCallback onUpdateReceiveMsgCallback) {
+        this.mOnUpdateReceiveMsgCallback = onUpdateReceiveMsgCallback;
+    }
+
 }

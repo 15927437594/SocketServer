@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">SocketServer</string>
+    <string name="connect">connect</string>
+    <string name="disconnect">disconnect</string>
+    <string name="receive">receive message</string>
+    <string name="send">send</string>
 </resources>
