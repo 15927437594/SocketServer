@@ -17,13 +17,15 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import cn.com.hwtc.socketserver.utils.Constants;
+import cn.com.hwtc.socketserver.utils.Manager;
+
 /**
  * user:Created by jid on 2018/12/4 17:42:51.
  * email:18571762595@163.com.
  */
 public class SocketServer {
-
-    private static final String TAG = "SocketServer " + SocketServer.class.getSimpleName();
+    private static final String TAG = Constants.TAG_BASE + SocketServer.class.getSimpleName();
     private static final int PORT = 8989;
     private List<Socket> mList = new ArrayList<>();
     private ServerSocket server;
@@ -51,21 +53,47 @@ public class SocketServer {
         mMainHandler = Manager.getInstance().getMainHandler();
     }
 
+//    public void start() {
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                try {
+//                    if (null == server) {
+//                        server = new ServerSocket(PORT);
+//                    }
+//                    ExecutorService mExecutorService = Executors.newCachedThreadPool();
+//                    while (true) {
+//                        Log.d(TAG, "SocketServer is start");
+//                        mClient = server.accept();
+//                        mList.add(mClient);
+//                        mExecutorService.execute(new Service(mClient));
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }).start();
+//    }
+
     public void start() {
-        try {
-            if (null == server) {
-                server = new ServerSocket(PORT);
+        mThreadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (null == server) {
+                        server = new ServerSocket(PORT);
+                    }
+                    while (true) {
+                        Log.d(TAG, "SocketServer is start");
+                        mClient = server.accept();
+                        mList.add(mClient);
+                        mThreadPool.execute(new Service(mClient));
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
-            ExecutorService mExecutorService = Executors.newCachedThreadPool();
-            while (true) {
-                Log.d(TAG, "SocketServer is start");
-                mClient = server.accept();
-                mList.add(mClient);
-                mExecutorService.execute(new Service(mClient));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        });
     }
 
     public void sendMsgToClient(final String sendMessage) {
@@ -96,11 +124,11 @@ public class SocketServer {
         }
     }
 
-    class Service implements Runnable {
+    private class Service implements Runnable {
         private Socket socket;
         private BufferedReader in = null;
 
-        public Service(Socket socket) {
+        private Service(Socket socket) {
             this.socket = socket;
             try {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
@@ -117,12 +145,7 @@ public class SocketServer {
                     String receiveMsg;
                     if ((receiveMsg = in.readLine()) != null) {
                         Log.d(TAG, "receiveMsg:" + receiveMsg);
-                        Message msg = mMainHandler.obtainMessage();
-                        msg.what = Constants.MSG_UPDATE_RECEIVE_MESSAGE;
-                        Bundle bundle = new Bundle();
-                        bundle.putString(Constants.RECEIVE_MSG, receiveMsg);
-                        msg.setData(bundle);
-                        mMainHandler.sendMessage(msg);
+                        updateReceiveMsg(receiveMsg);
                         if (receiveMsg.equals("0")) {
                             mList.remove(socket);
                             in.close();
@@ -135,5 +158,14 @@ public class SocketServer {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void updateReceiveMsg(String receiveMsg) {
+        Message msg = mMainHandler.obtainMessage();
+        msg.what = Constants.MSG_UPDATE_RECEIVE_MESSAGE;
+        Bundle bundle = new Bundle();
+        bundle.putString(Constants.RECEIVE_MSG, receiveMsg);
+        msg.setData(bundle);
+        mMainHandler.sendMessage(msg);
     }
 }

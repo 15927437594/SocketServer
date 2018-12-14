@@ -10,6 +10,9 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import cn.com.hwtc.socketserver.utils.Constants;
+import cn.com.hwtc.socketserver.utils.Manager;
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "SocketServer " + MainActivity.class.getSimpleName();
     private TextView receiveMessage;

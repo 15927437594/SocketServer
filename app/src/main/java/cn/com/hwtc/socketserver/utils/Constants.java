@@ -1,4 +1,4 @@
-package cn.com.hwtc.socketserver;
+package cn.com.hwtc.socketserver.utils;
 
 /**
  * user:Created by jid on 2018/12/14 16:59:01.
