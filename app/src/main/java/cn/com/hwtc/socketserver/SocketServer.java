@@ -1,5 +1,8 @@
 package cn.com.hwtc.socketserver;
 
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -23,12 +26,12 @@ public class SocketServer {
     private static final String TAG = "SocketServer " + SocketServer.class.getSimpleName();
     private static final int PORT = 8989;
     private List<Socket> mList = new ArrayList<>();
-    private OnUpdateReceiveMsgCallback mOnUpdateReceiveMsgCallback = null;
     private ServerSocket server;
     private Socket mClient;
     private ExecutorService mThreadPool;
     private OutputStream mOutputStream;
-    private static SocketServer sInstance=null;
+    private static SocketServer sInstance = null;
+    private Handler mMainHandler = null;
 
     public static SocketServer getInstance() {
         if (null == sInstance) {
@@ -42,8 +45,10 @@ public class SocketServer {
     }
 
     public SocketServer() {
-        if (null == mThreadPool)
+        if (mThreadPool == null) {
             mThreadPool = Executors.newCachedThreadPool();
+        }
+        mMainHandler = Manager.getInstance().getMainHandler();
     }
 
     public void start() {
@@ -112,8 +117,12 @@ public class SocketServer {
                     String receiveMsg;
                     if ((receiveMsg = in.readLine()) != null) {
                         Log.d(TAG, "receiveMsg:" + receiveMsg);
-                        if (null != mOnUpdateReceiveMsgCallback)
-                            mOnUpdateReceiveMsgCallback.onUpdateReceiveMsg(receiveMsg);
+                        Message msg = mMainHandler.obtainMessage();
+                        msg.what = Constants.MSG_UPDATE_RECEIVE_MESSAGE;
+                        Bundle bundle = new Bundle();
+                        bundle.putString(Constants.RECEIVE_MSG, receiveMsg);
+                        msg.setData(bundle);
+                        mMainHandler.sendMessage(msg);
                         if (receiveMsg.equals("0")) {
                             mList.remove(socket);
                             in.close();
@@ -127,13 +136,4 @@ public class SocketServer {
             }
         }
     }
-
-    public interface OnUpdateReceiveMsgCallback {
-        void onUpdateReceiveMsg(String receiveMsg);
-    }
-
-    public void setOnUpdateReceiveMsgCallback(OnUpdateReceiveMsgCallback onUpdateReceiveMsgCallback) {
-        this.mOnUpdateReceiveMsgCallback = onUpdateReceiveMsgCallback;
-    }
-
 }

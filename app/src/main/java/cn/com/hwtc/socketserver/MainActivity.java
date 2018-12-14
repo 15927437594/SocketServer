@@ -1,6 +1,8 @@
 package cn.com.hwtc.socketserver;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -8,8 +10,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-public class MainActivity extends AppCompatActivity implements SocketServer.OnUpdateReceiveMsgCallback, View.OnClickListener {
-
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "SocketServer " + MainActivity.class.getSimpleName();
     private TextView receiveMessage;
     private EditText mEdit;
@@ -25,8 +26,8 @@ public class MainActivity extends AppCompatActivity implements SocketServer.OnUp
     }
 
     private void initEvent() {
+        Manager.getInstance().setMainHandler(mMainHandler);
         mSocketServer = SocketServer.getInstance();
-        mSocketServer.setOnUpdateReceiveMsgCallback(this);
         sendMessage.setOnClickListener(this);
     }
 
@@ -34,16 +35,6 @@ public class MainActivity extends AppCompatActivity implements SocketServer.OnUp
         receiveMessage = findViewById(R.id.receive_message);
         mEdit = findViewById(R.id.edit);
         sendMessage = findViewById(R.id.send_message);
-    }
-
-    @Override
-    public void onUpdateReceiveMsg(final String receiveMsg) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                receiveMessage.setText(receiveMsg);
-            }
-        });
     }
 
     @Override
@@ -68,4 +59,18 @@ public class MainActivity extends AppCompatActivity implements SocketServer.OnUp
                 break;
         }
     }
+
+    private Handler mMainHandler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message msg) {
+            switch (msg.what) {
+                case Constants.MSG_UPDATE_RECEIVE_MESSAGE:
+                    receiveMessage.setText(msg.getData().getString(Constants.RECEIVE_MSG, ""));
+                    break;
+                default:
+                    break;
+            }
+            return true;
+        }
+    });
 }
