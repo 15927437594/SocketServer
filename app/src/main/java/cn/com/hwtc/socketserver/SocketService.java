@@ -5,13 +5,14 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import cn.com.hwtc.socketserver.utils.Constants;
+
 /**
  * user:Created by jid on 2018/12/5 15:31:23.
  * email:18571762595@163.com.
  */
 public class SocketService extends Service {
-
-    private static final String TAG = "SocketServer " + SocketService.class.getSimpleName();
+    private static final String TAG = Constants.TAG_BASE + SocketService.class.getSimpleName();
     private SocketServer mSocketServer;
 
     @Override
@@ -35,14 +36,8 @@ public class SocketService extends Service {
     }
 
     private void startSocketServer() {
-        new Thread() {
-            @Override
-            public void run() {
-                super.run();
-                if (null != mSocketServer)
-                    mSocketServer.start();
-            }
-        }.start();
+        if (mSocketServer != null) {
+            mSocketServer.start();
+        }
     }
-
 }
