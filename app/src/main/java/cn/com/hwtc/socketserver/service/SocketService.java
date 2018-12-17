@@ -1,10 +1,11 @@
-package cn.com.hwtc.socketserver;
+package cn.com.hwtc.socketserver.service;
 
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import cn.com.hwtc.socketserver.manager.ServerManager;
 import cn.com.hwtc.socketserver.utils.Constants;
 
 /**
@@ -13,7 +14,7 @@ import cn.com.hwtc.socketserver.utils.Constants;
  */
 public class SocketService extends Service {
     private static final String TAG = Constants.TAG_BASE + SocketService.class.getSimpleName();
-    private SocketServer mSocketServer;
+    private ServerManager mServerManager;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -25,7 +26,7 @@ public class SocketService extends Service {
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "onCreate");
-        mSocketServer = SocketServer.getInstance();
+        mServerManager = ServerManager.getInstance();
         startSocketServer();
     }
 
@@ -36,8 +37,8 @@ public class SocketService extends Service {
     }
 
     private void startSocketServer() {
-        if (mSocketServer != null) {
-            mSocketServer.start();
+        if (mServerManager != null) {
+            mServerManager.createServerSocket();
         }
     }
 }

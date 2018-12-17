@@ -1,4 +1,4 @@
-package cn.com.hwtc.socketserver;
+package cn.com.hwtc.socketserver.manager;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,78 +14,57 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import cn.com.hwtc.socketserver.utils.Constants;
-import cn.com.hwtc.socketserver.utils.Manager;
 
 /**
  * user:Created by jid on 2018/12/4 17:42:51.
  * email:18571762595@163.com.
  */
-public class SocketServer {
-    private static final String TAG = Constants.TAG_BASE + SocketServer.class.getSimpleName();
+public class ServerManager {
+    private static final String TAG = Constants.TAG_BASE + ServerManager.class.getSimpleName();
     private static final int PORT = 8989;
     private List<Socket> mList = new ArrayList<>();
-    private ServerSocket server;
+    private ServerSocket mServerSocket;
     private Socket mClient;
     private ExecutorService mThreadPool;
     private OutputStream mOutputStream;
-    private static SocketServer sInstance = null;
-    private Handler mMainHandler = null;
+    private static ServerManager sInstance = null;
+    private Handler mMainHandler;
 
-    public static SocketServer getInstance() {
+    public static ServerManager getInstance() {
         if (null == sInstance) {
-            synchronized (SocketServer.class) {
+            synchronized (ServerManager.class) {
                 if (null == sInstance) {
-                    sInstance = new SocketServer();
+                    sInstance = new ServerManager();
                 }
             }
         }
         return sInstance;
     }
 
-    public SocketServer() {
-        if (mThreadPool == null) {
-            mThreadPool = Executors.newCachedThreadPool();
-        }
-        mMainHandler = Manager.getInstance().getMainHandler();
+    public ServerManager() {
+        mThreadPool = Executors.newCachedThreadPool();
+        mMainHandler = HandlerManager.getInstance().getMainHandler();
     }
 
-//    public void start() {
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                try {
-//                    if (null == server) {
-//                        server = new ServerSocket(PORT);
-//                    }
-//                    ExecutorService mExecutorService = Executors.newCachedThreadPool();
-//                    while (true) {
-//                        Log.d(TAG, "SocketServer is start");
-//                        mClient = server.accept();
-//                        mList.add(mClient);
-//                        mExecutorService.execute(new Service(mClient));
-//                    }
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        }).start();
-//    }
-
-    public void start() {
+    public void createServerSocket() {
         mThreadPool.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    if (null == server) {
-                        server = new ServerSocket(PORT);
+                    if (mServerSocket == null) {
+                        mServerSocket = new ServerSocket(PORT);
                     }
                     while (true) {
-                        Log.d(TAG, "SocketServer is start");
-                        mClient = server.accept();
+                        mClient = mServerSocket.accept();
+                        Log.d(TAG, "accept and add client");
                         mList.add(mClient);
                         mThreadPool.execute(new Service(mClient));
                     }
@@ -96,15 +75,16 @@ public class SocketServer {
         });
     }
 
-    public void sendMsgToClient(final String sendMessage) {
+    public void sendMsg(final String sendMsg) {
         mThreadPool.execute(new Runnable() {
             @Override
             public void run() {
-                if (null == mClient) return;
-                if (TextUtils.isEmpty(sendMessage)) return;
+                if (TextUtils.isEmpty(sendMsg) || mClient == null) {
+                    return;
+                }
                 try {
                     mOutputStream = mClient.getOutputStream();
-                    mOutputStream.write((sendMessage + "\n").getBytes("utf-8"));
+                    mOutputStream.write((sendMsg + "\n").getBytes("utf-8"));
                     //发送数据到服务端
                     mOutputStream.flush();
                 } catch (IOException e) {
@@ -115,9 +95,9 @@ public class SocketServer {
     }
 
     public void close() {
-        if (null != server) {
+        if (null != mServerSocket) {
             try {
-                server.close();
+                mServerSocket.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -167,5 +147,18 @@ public class SocketServer {
         bundle.putString(Constants.RECEIVE_MSG, receiveMsg);
         msg.setData(bundle);
         mMainHandler.sendMessage(msg);
+    }
+
+    public ExecutorService createThreadPool() {
+        int NUM_OF_CORES = Runtime.getRuntime().availableProcessors();
+        int KEEP_ALIVE_TIME = 1;
+        TimeUnit KEEP_ALIVE_TIME_UNIT = TimeUnit.SECONDS;
+        BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
+//        mThreadPool = Executors.newCachedThreadPool();
+        if (mThreadPool == null) {
+            mThreadPool = new ThreadPoolExecutor(NUM_OF_CORES, NUM_OF_CORES * 2, KEEP_ALIVE_TIME,
+                    KEEP_ALIVE_TIME_UNIT, taskQueue);
+        }
+        return mThreadPool;
     }
 }
