@@ -1,4 +1,4 @@
-package cn.com.hwtc.socketserver;
+package cn.com.hwtc.socketserver.activity;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -10,15 +10,17 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import cn.com.hwtc.socketserver.R;
+import cn.com.hwtc.socketserver.manager.HandlerManager;
+import cn.com.hwtc.socketserver.manager.ServerManager;
 import cn.com.hwtc.socketserver.utils.Constants;
-import cn.com.hwtc.socketserver.utils.Manager;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private static final String TAG = "SocketServer " + MainActivity.class.getSimpleName();
     private TextView receiveMessage;
     private EditText mEdit;
     private Button sendMessage;
-    private SocketServer mSocketServer;
+    private ServerManager mServerManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,8 +31,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initEvent() {
-        Manager.getInstance().setMainHandler(mMainHandler);
-        mSocketServer = SocketServer.getInstance();
+        HandlerManager.getInstance().setMainHandler(mMainHandler);
+        mServerManager = ServerManager.getInstance();
         sendMessage.setOnClickListener(this);
     }
 
@@ -56,7 +58,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.send_message:
-                mSocketServer.sendMsgToClient(mEdit.getText().toString());
+                mServerManager.sendMsg(mEdit.getText().toString());
                 break;
             default:
                 break;
