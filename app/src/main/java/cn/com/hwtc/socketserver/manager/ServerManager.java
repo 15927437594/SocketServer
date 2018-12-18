@@ -14,12 +14,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import cn.com.hwtc.socketserver.utils.Constants;
 
@@ -49,8 +46,8 @@ public class ServerManager {
         return sInstance;
     }
 
-    public ServerManager() {
-        mThreadPool = Executors.newCachedThreadPool();
+    private ServerManager() {
+        mThreadPool = Executors.newFixedThreadPool(10);
         mMainHandler = HandlerManager.getInstance().getMainHandler();
     }
 
@@ -62,11 +59,11 @@ public class ServerManager {
                     if (mServerSocket == null) {
                         mServerSocket = new ServerSocket(PORT);
                     }
-                    while (true) {
+                    while (!mIsServerSocketInterrupted.get()) {
                         mClient = mServerSocket.accept();
                         Log.d(TAG, "accept and add client");
                         mList.add(mClient);
-                        mThreadPool.execute(new Service(mClient));
+                        mThreadPool.execute(new ClientService(mClient));
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -95,23 +92,26 @@ public class ServerManager {
     }
 
     public void close() {
-        if (null != mServerSocket) {
-            try {
+        try {
+            if (mServerSocket != null) {
                 mServerSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    private class Service implements Runnable {
-        private Socket socket;
-        private BufferedReader in = null;
+    private AtomicBoolean mIsServerSocketInterrupted = new AtomicBoolean(false);
+    private AtomicBoolean mIsClientInterrupted = new AtomicBoolean(false);
 
-        private Service(Socket socket) {
+    private class ClientService implements Runnable {
+        private Socket socket;
+        private BufferedReader bufferedReader = null;
+
+        private ClientService(Socket socket) {
             this.socket = socket;
             try {
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+                bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -121,16 +121,16 @@ public class ServerManager {
         public void run() {
             Log.d(TAG, "service run");
             try {
-                while (true) {
+                while (!mIsClientInterrupted.get()) {
                     String receiveMsg;
-                    if ((receiveMsg = in.readLine()) != null) {
+                    if ((receiveMsg = bufferedReader.readLine()) != null) {
                         Log.d(TAG, "receiveMsg:" + receiveMsg);
                         updateReceiveMsg(receiveMsg);
                         if (receiveMsg.equals("0")) {
                             mList.remove(socket);
-                            in.close();
+                            bufferedReader.close();
                             socket.close();
-                            break;
+                            mIsClientInterrupted.set(true);
                         }
                     }
                 }
@@ -147,18 +147,5 @@ public class ServerManager {
         bundle.putString(Constants.RECEIVE_MSG, receiveMsg);
         msg.setData(bundle);
         mMainHandler.sendMessage(msg);
-    }
-
-    public ExecutorService createThreadPool() {
-        int NUM_OF_CORES = Runtime.getRuntime().availableProcessors();
-        int KEEP_ALIVE_TIME = 1;
-        TimeUnit KEEP_ALIVE_TIME_UNIT = TimeUnit.SECONDS;
-        BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
-//        mThreadPool = Executors.newCachedThreadPool();
-        if (mThreadPool == null) {
-            mThreadPool = new ThreadPoolExecutor(NUM_OF_CORES, NUM_OF_CORES * 2, KEEP_ALIVE_TIME,
-                    KEEP_ALIVE_TIME_UNIT, taskQueue);
-        }
-        return mThreadPool;
     }
 }
