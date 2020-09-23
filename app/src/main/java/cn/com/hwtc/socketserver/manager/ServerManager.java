@@ -12,8 +12,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,7 +26,6 @@ import cn.com.hwtc.socketserver.utils.Constants;
 public class ServerManager {
     private static final String TAG = Constants.TAG_BASE + ServerManager.class.getSimpleName();
     private static final int PORT = 8989;
-    private List<Socket> mList = new ArrayList<>();
     private ServerSocket mServerSocket;
     private Socket mClient;
     private ExecutorService mThreadPool;
@@ -49,44 +47,38 @@ public class ServerManager {
     private ServerManager() {
         mThreadPool = Executors.newFixedThreadPool(10);
         mMainHandler = HandlerManager.getInstance().getMainHandler();
+        mThreadPool.shutdownNow();
     }
 
     public void createServerSocket() {
-        mThreadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    if (mServerSocket == null) {
-                        mServerSocket = new ServerSocket(PORT);
-                    }
-                    while (!mIsServerSocketInterrupted.get()) {
-                        mClient = mServerSocket.accept();
-                        Log.d(TAG, "accept and add client");
-                        mList.add(mClient);
-                        mThreadPool.execute(new ClientService(mClient));
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+        mThreadPool.execute(() -> {
+            try {
+                if (mServerSocket == null) {
+                    mServerSocket = new ServerSocket(PORT);
                 }
+                while (!mIsServerSocketInterrupted.get()) {
+                    mClient = mServerSocket.accept();
+                    Log.d(TAG, "accept and add client");
+                    mThreadPool.execute(new ClientService(mClient));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
 
     public void sendMsg(final String sendMsg) {
-        mThreadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                if (TextUtils.isEmpty(sendMsg) || mClient == null) {
-                    return;
-                }
-                try {
-                    mOutputStream = mClient.getOutputStream();
-                    mOutputStream.write((sendMsg + "\n").getBytes("utf-8"));
-                    //发送数据到服务端
-                    mOutputStream.flush();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        mThreadPool.execute(() -> {
+            if (TextUtils.isEmpty(sendMsg) || mClient == null) {
+                return;
+            }
+            try {
+                //发送数据到客户端
+                mOutputStream = mClient.getOutputStream();
+                mOutputStream.write((sendMsg + "\n").getBytes(StandardCharsets.UTF_8));
+                mOutputStream.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         });
     }
@@ -111,7 +103,7 @@ public class ServerManager {
         private ClientService(Socket socket) {
             this.socket = socket;
             try {
-                bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+                bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -127,7 +119,6 @@ public class ServerManager {
                         Log.d(TAG, "receiveMsg:" + receiveMsg);
                         updateReceiveMsg(receiveMsg);
                         if (receiveMsg.equals("0")) {
-                            mList.remove(socket);
                             bufferedReader.close();
                             socket.close();
                             mIsClientInterrupted.set(true);

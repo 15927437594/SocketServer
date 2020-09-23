@@ -1,22 +1,24 @@
 package cn.com.hwtc.socketserver.activity;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+
 import cn.com.hwtc.socketserver.R;
 import cn.com.hwtc.socketserver.manager.HandlerManager;
 import cn.com.hwtc.socketserver.manager.ServerManager;
 import cn.com.hwtc.socketserver.utils.Constants;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
-    private static final String TAG = "SocketServer " + MainActivity.class.getSimpleName();
+public class MainActivity extends Activity implements View.OnClickListener {
+    private static final String TAG = Constants.TAG_BASE + MainActivity.class.getSimpleName();
     private TextView receiveMessage;
     private EditText mEdit;
     private Button sendMessage;
@@ -56,24 +58,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.send_message:
-                mServerManager.sendMsg(mEdit.getText().toString());
-                break;
-            default:
-                break;
+        if (v.getId() == R.id.send_message) {
+            mServerManager.sendMsg(mEdit.getText().toString());
         }
     }
 
     private Handler mMainHandler = new Handler(new Handler.Callback() {
         @Override
-        public boolean handleMessage(Message msg) {
-            switch (msg.what) {
-                case Constants.MSG_UPDATE_RECEIVE_MESSAGE:
-                    receiveMessage.setText(msg.getData().getString(Constants.RECEIVE_MSG, ""));
-                    break;
-                default:
-                    break;
+        public boolean handleMessage(@NonNull Message msg) {
+            if (msg.what == Constants.MSG_UPDATE_RECEIVE_MESSAGE) {
+                receiveMessage.setText(msg.getData().getString(Constants.RECEIVE_MSG, ""));
             }
             return true;
         }

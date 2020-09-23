@@ -14,7 +14,6 @@ import cn.com.hwtc.socketserver.utils.Constants;
  */
 public class SocketService extends Service {
     private static final String TAG = Constants.TAG_BASE + SocketService.class.getSimpleName();
-    private ServerManager mServerManager;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -26,19 +25,12 @@ public class SocketService extends Service {
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "onCreate");
-        mServerManager = ServerManager.getInstance();
-        startSocketServer();
+        ServerManager.getInstance().createServerSocket();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand");
         return super.onStartCommand(intent, flags, startId);
-    }
-
-    private void startSocketServer() {
-        if (mServerManager != null) {
-            mServerManager.createServerSocket();
-        }
     }
 }
